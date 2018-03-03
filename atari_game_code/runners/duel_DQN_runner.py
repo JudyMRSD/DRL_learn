@@ -121,6 +121,7 @@ class duel_DQN_runner():
     # training with replay
     def train(self):
         state = self.gymEnv.reset()
+        state = self.processState(state)
         steps = 0
 
         print("training with replay")
@@ -142,23 +143,26 @@ class duel_DQN_runner():
                 action = self.epsilon_greedy_policy(state)
                 # R_t+1, S_t+1
                 next_state, reward, done, info = self.gymEnv.step(action)
-
+                next_state = self.processState(next_state)
                 episode_reward += reward
                 # save S_t, A_t, R_t+1, S_t+1 to memory
-                next_state = np.reshape(next_state, [1, -1])  # shape (1,4)
+
 
                 if done or episode_step > self.maxSteps:
                     print("episode", e, "episode_reward", episode_reward)
 
                     rewards_list.append(episode_reward)
                     next_state = np.zeros(state.shape)
-                    memory.append((np.reshape(state, [1, -1]), action, reward, (np.reshape(next_state, [1, -1])), done))
+                    next_state = self.processState(next_state)
+
+                    memory.append(np.reshape(np.array[state, action, reward, next_state, done]), [1, 5])
+
                     # start new episode
                     state = self.gymEnv.reset()
                     episode_reward = 0
 
                 else:
-                    memory.append((np.reshape(state, [1, -1]), action, reward, (np.reshape(next_state, [1, -1])), done))
+                    memory.append(np.reshape(np.array[state, action, reward, next_state, done]), [1, 5])
                     state = next_state
 
                 # train agent by sampling from memory
@@ -180,6 +184,8 @@ class duel_DQN_runner():
 
         # return memory
 
+    def processState(self, state):
+        return np.reshape(state, [84*84*3])
 
     def burn_in_memory(self):
         # udacity, Q_learning_cart.py
@@ -187,19 +193,19 @@ class duel_DQN_runner():
         # Initialize your replay memory with a burn_in number of episodes / transitions.
         memory = Replay_Memory()
         state = self.gymEnv.reset()
-
+        state = self.processState(state)
         for i in range(memory.burn_in):
             # make a random action
             action = self.gymEnv.action_space.sample()
             next_state, reward, done, info = self.gymEnv.step(action)
-
+            next_state = self.processState(next_state)
             if done:
                 # if (reward == 1):
                 #    print("reached goal")
                 # the simulation fails so no next state
                 # W * S = 0   = Q(S',A') = 0   if next state is done
                 next_state = np.zeros(state.shape)
-                memory.append((np.reshape(state, [1, -1]), action, reward, (np.reshape(next_state, [1, -1])), done))
+                memory.append(np.reshape(np.array[state, action, reward, next_state, done]), [1,5])
                 # start new episode
                 state = self.gymEnv.reset()
 
