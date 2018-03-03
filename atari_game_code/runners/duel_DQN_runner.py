@@ -56,6 +56,7 @@ class duel_DQN_runner():
         self.duelDQN = duelDQN(self.learningRate, self.actionSize)
         self.model = self.duelDQN.model
         self.batch_size = 32
+        self.skip = 4
 
     def epsilon_greedy_policy(self, state):
         # Creating epsilon greedy probabilities to sample from.
@@ -64,7 +65,7 @@ class duel_DQN_runner():
             return a
 
         # input shape is [None ,4]
-        state = np.reshape(state, [1, -1])
+        state = np.reshape(state, [-1, 84,84,3])
         q_values = self.model.predict(state)
         return np.argmax(q_values)
 
@@ -72,7 +73,7 @@ class duel_DQN_runner():
     def greedy_policy(self, state):
         # Creating greedy policy for test time.
         # input shape is [None ,4]
-        state = np.reshape(state, [1, -1])
+        state = np.reshape(state, [-1, 84, 84, 3])
         q_values = self.model.predict(state)
 
         return np.argmax(q_values)
@@ -104,7 +105,23 @@ class duel_DQN_runner():
         target_f_array = []
 
         # extract information from memory
-        for state, action, reward, next_state, done in minibatch:
+        for memory in minibatch:
+
+            '''
+            print("memory", memory.shape)
+            print("memory [0] ", memory[0][0])
+            print("memory [1]", memory[0][1])
+            print("memory [2]", memory[0][2])
+            print("memory [3]", memory[0][3])
+            print("memory [4]", memory[0][4])
+
+
+
+            '''
+
+
+            state, action, reward, next_state, done = memory[0][0], memory[0][1], memory[0][2], memory[0][3], memory[0][4]
+            print("state", np.array(state).shape)
             state = np.reshape(state, [-1,84,84,3])
             # print("state shape", state.shape)
             next_state = np.reshape(state, [-1,84, 84, 3])
@@ -138,7 +155,7 @@ class duel_DQN_runner():
     def train(self):
         state = self.gymEnv.reset()
         state = self.processState(state)
-        steps = 0
+        total_steps = 0
 
         print("training with replay")
         rewards_list = []
@@ -151,8 +168,8 @@ class duel_DQN_runner():
             episode_reward = 0
 
             while not done:
-                print("steps",steps)
-                steps += 1  # total steps during the entire training process
+                print("steps",total_steps)
+                total_steps += 1  # total steps during the entire training process
                 # A_t
                 action = self.epsilon_greedy_policy(state)
                 # R_t+1, S_t+1
@@ -169,7 +186,7 @@ class duel_DQN_runner():
                     next_state = np.zeros(state.shape)
                     next_state = self.processState(next_state)
 
-                    memory.append(np.reshape(np.array[state, action, reward, next_state, done]), [1, 5])
+                    memory.append(np.reshape(np.array([state, action, reward, next_state, done]), [1, 5]))
 
                     # start new episode
                     state = self.gymEnv.reset()
@@ -180,9 +197,11 @@ class duel_DQN_runner():
                     state = next_state
 
                 # train agent by sampling from memory
-                self.replay(memory)
+                # skip frame to speed up the process
+                if total_steps % self.skip == 0:
+                    self.replay(memory)
 
-            if (e >= 20 and e % 100 == 0):
+            if (e >= 20 and e % 20 == 0):
                 plot_running_mean(rewards_list, "exponentialDecay_training" + self.network)
                 # self.test(e)
                 # plt.plot(rewards_list)
@@ -220,12 +239,13 @@ class duel_DQN_runner():
                 # the simulation fails so no next state
                 # W * S = 0   = Q(S',A') = 0   if next state is done
                 next_state = np.zeros(state.shape)
-                memory.append(np.reshape(np.array[state, action, reward, next_state, done]), [1,5])
+                memory.append(np.reshape(np.array([state, action, reward, next_state, done]), [1, 5]))
                 # start new episode
                 state = self.gymEnv.reset()
+                state = self.processState(state)
 
             else:
-                memory.append((np.reshape(state, [1, -1]), action, reward, (np.reshape(next_state, [1, -1])), done))
+                memory.append(np.reshape(np.array([state, action, reward, next_state, done]), [1, 5]))
                 state = next_state
 
         return memory
