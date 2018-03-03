@@ -16,6 +16,7 @@ import random
 from numpy.random import seed
 from tensorflow import set_random_seed
 
+
 import numpy as np
 import random
 import keras
@@ -43,11 +44,17 @@ class duel_DQN_runner():
         self.path = '../model/'
         self.numEpisodes = 1005
         self.learningRate = 0.001
-        self.epsilon = 1.0
-        self.epsilon_decay = 0.999
-        self.epsilon_min = 0.01
+        self.epsilon_start = 1
+        self.epsilon = self.epsilon_start
+        self.epsilon_end = 0.1
+        self.annealingSteps = 10000
+        self.epsilon_decay = (self.epsilon_start - self.epsilon_end)/self.annealingSteps
+
         self.gamma = 0.99
-        self.model = duelDQN()
+        self.gymEnv = gameEnv(partial=False, size=5)
+        self.actionSize = self.gymEnv.actions
+        self.duelDQN = duelDQN(self.learningRate, self.actionSize)
+        self.model = self.duelDQN.model
 
     def epsilon_greedy_policy(self, state):
         # Creating epsilon greedy probabilities to sample from.
@@ -97,6 +104,16 @@ class duel_DQN_runner():
 
         # extract information from memory
         for state, action, reward, next_state, done in minibatch:
+            state = np.reshape(state, [-1,84,84,3])
+
+            print("state shape", state.shape)
+
+            next_state = np.reshape(state, [-1,84, 84, 3])
+
+            print("state shape", next_state.shape)
+
+            plt.imshow(next_state[0])
+            plt.savefig('../result/foo.png')
             # print("reward from minibatch",reward)
             if done:
                 target = reward
@@ -133,22 +150,19 @@ class duel_DQN_runner():
 
             done = False
             episode_reward = 0
-            self.epsilon = self.explore_stop + (self.explore_start - self.explore_stop) * np.exp(
-                -self.decay_rate * steps)
-            episode_step = 0
+
             while not done:
                 steps += 1  # total steps during the entire training process
-                episode_step += 1  # count of steps inside one episode
                 # A_t
                 action = self.epsilon_greedy_policy(state)
                 # R_t+1, S_t+1
-                next_state, reward, done, info = self.gymEnv.step(action)
+                next_state, reward, done = self.gymEnv.step(action)
                 next_state = self.processState(next_state)
                 episode_reward += reward
                 # save S_t, A_t, R_t+1, S_t+1 to memory
 
 
-                if done or episode_step > self.maxSteps:
+                if done:
                     print("episode", e, "episode_reward", episode_reward)
 
                     rewards_list.append(episode_reward)
@@ -162,7 +176,7 @@ class duel_DQN_runner():
                     episode_reward = 0
 
                 else:
-                    memory.append(np.reshape(np.array[state, action, reward, next_state, done]), [1, 5])
+                    memory.append(np.reshape(np.array([state, action, reward, next_state, done]), [1, 5]))
                     state = next_state
 
                 # train agent by sampling from memory
@@ -175,17 +189,18 @@ class duel_DQN_runner():
                 # plt.savefig('../result/reward.jpg')
 
             if self.epsilon > self.epsilon_min:
-                self.epsilon *= self.epsilon_decay
+                self.epsilon -= self.epsilon_decay
+                # self.epsilon *= self.epsilon_decay
                 # if self.epsilon > self.epsilon_min:
                 # self.epsilon = 1./((e/50) + 10)
-                # self.epsilon -= self.epsilon_decay
+
 
         self.save_model_weights()
 
         # return memory
 
     def processState(self, state):
-        return np.reshape(state, [84*84*3])
+        return np.reshape(state, [84*84*3])  # 84x84x3 channel image reshaped to 1d vector
 
     def burn_in_memory(self):
         # udacity, Q_learning_cart.py
@@ -196,8 +211,8 @@ class duel_DQN_runner():
         state = self.processState(state)
         for i in range(memory.burn_in):
             # make a random action
-            action = self.gymEnv.action_space.sample()
-            next_state, reward, done, info = self.gymEnv.step(action)
+            action = np.random.randint(0,4)
+            next_state, reward, done = self.gymEnv.step(action)
             next_state = self.processState(next_state)
             if done:
                 # if (reward == 1):
@@ -217,5 +232,3 @@ class duel_DQN_runner():
 
 
 
-    def update_target_model(self):
-        self.target_model.set_weights(self.model.get_weights())

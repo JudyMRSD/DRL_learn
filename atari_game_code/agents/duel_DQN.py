@@ -8,7 +8,25 @@ import sys
 import keras, tensorflow as tf, numpy as npy, gym, sys, copy, argparse
 from keras import backend as K
 from keras.models import Model
+import tensorflow as tf, numpy as npy, gym, sys, copy, argparse
 
+import matplotlib.pyplot as plt
+plt.switch_backend('agg')
+from keras.models import Model
+from collections import deque
+
+import random
+from numpy.random import seed
+from tensorflow import set_random_seed
+import keras
+from keras import backend as K
+
+from keras.models import Sequential
+from keras.layers import *
+from keras.optimizers import *
+from keras.models import load_model
+
+import os
 
 import numpy as np
 from keras.models import Sequential
@@ -43,25 +61,29 @@ from agents.duel_DQN import *
 
 
 class duelDQN():
-    def __init__(self):
-        self.gymEnv = gameEnv(partial=False, size=5)
-        self.actionSize = self.gymEnv.actions
+    def __init__(self, learningRate, actionSize):
 
+        self.actionSize = actionSize
 
+        self.learningRate = learningRate
         self.network = "dueling"
-        self.imgShape = (84, 84, 4)  # num frames = 4
+        self.imgShape = (84, 84, 3)  # num frames = 1, 3 channel image
 
         self.model = self._createModel()
-        self.target_model = self._createModel()
+        # duel dqn
+        #self.target_model = self._createModel()
         # initialize the target model so that the parameters in the two models are the same
-        self.update_target_model()
+        # self.update_target_model()
+        # return self.model
 
+    def update_target_model(self):
+        self.target_model.set_weights(self.model.get_weights())
 
 
     # https://yilundu.github.io/2016/12/24/Deep-Q-Learning-on-Space-Invaders.html
     # https://morvanzhou.github.io/tutorials/machine-learning/reinforcement-learning/4-7-dueling-DQN/
     def _createModel(self):
-        model = Sequential()
+        # model = Sequential()
         input_layer = Input(shape =(self.imgShape))
         conv1 = Convolution2D(32, 8, 8, activation='relu')(input_layer)
 
@@ -81,6 +103,7 @@ class duelDQN():
         opti = Adam(lr=self.learningRate)
         model.compile(loss='mse', optimizer=opti)
         return model
+
     def combine_A_V(self, x):
         return x[0]-K.mean(x[0])+x[1]
 
