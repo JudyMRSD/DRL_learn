@@ -8,9 +8,9 @@ sys.path.insert(0, os.path.join(repo_path, 'agents'))
 sys.path.insert(0, os.path.join(repo_path, 'environment'))
 sys.path.insert(0, os.path.join(repo_path, 'runners'))
 
-from environment.gridworld import gameEnv
-from agents.duel_DQN import *
-from runners.duel_DQN_runner import *
+from gridworld import gameEnv
+from duel_DQN import *
+from duel_DQN_runner import *
 
 env = gameEnv(partial=False,size=5)
 print(env.actions) # 4 actions 
