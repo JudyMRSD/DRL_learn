@@ -55,6 +55,7 @@ class duel_DQN_runner():
         self.actionSize = self.gymEnv.actions
         self.duelDQN = duelDQN(self.learningRate, self.actionSize)
         self.model = self.duelDQN.model
+        self.batch_size = 32
 
     def epsilon_greedy_policy(self, state):
         # Creating epsilon greedy probabilities to sample from.
@@ -105,15 +106,13 @@ class duel_DQN_runner():
         # extract information from memory
         for state, action, reward, next_state, done in minibatch:
             state = np.reshape(state, [-1,84,84,3])
-
-            print("state shape", state.shape)
-
+            # print("state shape", state.shape)
             next_state = np.reshape(state, [-1,84, 84, 3])
 
-            print("state shape", next_state.shape)
+            # print("state shape", next_state.shape)
 
-            plt.imshow(next_state[0])
-            plt.savefig('../result/foo.png')
+            # plt.imshow(next_state[0])
+            # plt.savefig('../result/foo.png')
             # print("reward from minibatch",reward)
             if done:
                 target = reward
@@ -147,11 +146,12 @@ class duel_DQN_runner():
         for e in range(self.numEpisodes):
             # S_t, A_t, R_t+1, S_t+1, A_t+1
             # S_t
-
+            print("e", e)
             done = False
             episode_reward = 0
 
             while not done:
+                print("steps",steps)
                 steps += 1  # total steps during the entire training process
                 # A_t
                 action = self.epsilon_greedy_policy(state)
