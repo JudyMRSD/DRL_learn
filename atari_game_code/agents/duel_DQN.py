@@ -74,6 +74,8 @@ class duelDQN():
         self.update_target_model()
 
     def update_target_model(self):
+        print("self.model.get_weights()",len(self.model.get_weights()))# 12
+        print("weights", self.model.get_weights())
         self.target_model.set_weights(self.model.get_weights())
 
 
@@ -104,6 +106,40 @@ class duelDQN():
         # mean squared loss  = (Q_target - Q) ^2
         opti = Adam(lr=self.learningRate)
         model.compile(loss='mse', optimizer=opti)
+
+        '''
+        names = [weight.name for layer in model.layers for weight in layer.weights]
+        weights = model.get_weights()
+        
+        for name, weight in zip(names, weights):
+            print(name, weight.shape)
+        conv2d_1/kernel:0 (8, 8, 3, 32)
+        conv2d_1/bias:0 (32,)
+        conv2d_2/kernel:0 (4, 4, 32, 64)
+        conv2d_2/bias:0 (64,)
+        conv2d_3/kernel:0 (3, 3, 64, 64)
+        conv2d_3/bias:0 (64,)
+        conv2d_4/kernel:0 (7, 7, 64, 512)
+        conv2d_4/bias:0 (512,)
+        dense_2/kernel:0 (256, 4)
+        dense_2/bias:0 (4,)
+        dense_1/kernel:0 (256, 1)
+        dense_1/bias:0 (1,)
+        # target
+        conv2d_5/kernel:0 (8, 8, 3, 32)
+        conv2d_5/bias:0 (32,)
+        conv2d_6/kernel:0 (4, 4, 32, 64)
+        conv2d_6/bias:0 (64,)
+        conv2d_7/kernel:0 (3, 3, 64, 64)
+        conv2d_7/bias:0 (64,)
+        conv2d_8/kernel:0 (7, 7, 64, 512)
+        conv2d_8/bias:0 (512,)
+        dense_4/kernel:0 (256, 4)
+        dense_4/bias:0 (4,)
+        dense_3/kernel:0 (256, 1)
+        dense_3/bias:0 (1,)
+
+        '''
         return model
 
     def combine_A_V(self, x):
