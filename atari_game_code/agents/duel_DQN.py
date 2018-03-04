@@ -2,6 +2,10 @@
 # https://medium.com/@awjuliani/simple-reinforcement-learning-with-tensorflow-part-4-deep-q-networks-and-beyond-8438a3e2b8df
 # https://github.com/awjuliani/DeepRL-Agents/blob/master/Double-Dueling-DQN.ipynb
 # https://github.com/tokb23/dqn/blob/master/ddqn.py
+
+
+# split in Keras
+# https://github.com/p-Mart/Double-Dueling-DQN-Keras/blob/master/DDDQN.py
 import os
 import sys
 
@@ -47,6 +51,13 @@ from keras.layers import merge, Input
 from keras import backend as K
 from collections import deque
 
+
+from keras.models import Model
+from keras.layers import Input, Dense, Lambda
+from keras.layers.convolutional import Conv2D
+from keras.engine.topology import Layer
+from keras.layers.merge import _Merge, Multiply
+
 repo_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 print(repo_path)
 sys.path.insert(0, os.path.join(repo_path, 'agents'))
@@ -80,18 +91,25 @@ class duelDQN():
     # https://yilundu.github.io/2016/12/24/Deep-Q-Learning-on-Space-Invaders.html
     # https://morvanzhou.github.io/tutorials/machine-learning/reinforcement-learning/4-7-dueling-DQN/
     def _createModel(self):
-        # model = Sequential()
-        input_layer = Input(shape = (84, 84, 3))
-        conv1 = Convolution2D(32, 8, 8, subsample=(4, 4), activation='relu')(input_layer)
-        conv2 = Convolution2D(64, 4, 4, subsample=(2, 2), activation='relu')(conv1)
-        conv3 = Convolution2D(64, 3, 3, activation = 'relu')(conv2)
-        conv4 = Convolution2D(512, 7, 7, activation = 'relu')(conv3)
-        flatten = Flatten()(conv4)
-        y = Dense(self.actionSize+1)(flatten)
+        h_size = 512
+        input_layer = Input(shape=(84,84,3))
 
-        prediction = Lambda(self.combine_A_V, output_shape =(self.actionSize,))(y)
+        x = Conv2D(filters=32, kernel_size=[8,8], strides=[4,4], input_shape=(84, 84, 3))(input_layer)
+        x = Conv2D(filters=64, kernel_size=[4,4],strides=[2,2])(x)
+        x = Conv2D(filters=64, kernel_size=[3,3],strides=[1,1])(x)
+        x = Conv2D(filters=h_size, kernel_size=[7,7],strides=[1,1])(x)
+        # x = Flatten()(x)
+        #Splice outputs of last conv layer using lambda layer
+        x_value = Lambda(lambda x: x[:,:,:,:h_size//2])(x)
+        x_advantage = Lambda(lambda x: x[:,:,:,h_size//2:])(x)
+
+        #Process spliced data stream into value and advantage function
+        value = Dense(1, activation="linear")(x_value)
+        advantage = Dense(self.actionSize, activation="linear")(x_advantage)
+        print("self.actionSize", self.actionSize)
+        prediction = Lambda(self.combine_A_V, output_shape =(self.actionSize,))([advantage, value])
+        
         model = Model(input = [input_layer], output=[prediction])
-
         # plot model 
         plot_model(model, to_file='../result/duelingDQN_model_exponential.png',show_shapes=True)
 
@@ -101,9 +119,7 @@ class duelDQN():
         return model
 
     def combine_A_V(self, x):
-        return K.expand_dims(x[:, 0]) + x[:, 1:] - K.mean(x[:, 1:], keepdims=True)
-        # return x[0]-K.mean(x[0])+x[1]
-
+        return x[0]-K.mean(x[0])+x[1]
 
 
 class Replay_Memory():
