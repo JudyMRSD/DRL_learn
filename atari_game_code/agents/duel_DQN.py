@@ -26,8 +26,6 @@ from keras.layers import *
 from keras.optimizers import *
 from keras.models import load_model
 
-import os
-
 import numpy as np
 from keras.models import Sequential
 from keras.layers import Dense, Activation,Reshape
@@ -56,8 +54,8 @@ sys.path.insert(0, os.path.join(repo_path, 'environment'))
 
 
 
-from environment.gridworld import gameEnv
-from agents.duel_DQN import *
+from gridworld import gameEnv
+from duel_DQN import *
 
 
 class duelDQN():
@@ -71,10 +69,9 @@ class duelDQN():
 
         self.model = self._createModel()
         # duel dqn
-        #self.target_model = self._createModel()
+        self.target_model = self._createModel()
         # initialize the target model so that the parameters in the two models are the same
-        # self.update_target_model()
-        # return self.model
+        self.update_target_model()
 
     def update_target_model(self):
         self.target_model.set_weights(self.model.get_weights())
@@ -84,10 +81,11 @@ class duelDQN():
     # https://morvanzhou.github.io/tutorials/machine-learning/reinforcement-learning/4-7-dueling-DQN/
     def _createModel(self):
         # model = Sequential()
-        input_layer = Input(shape =(self.imgShape))
-        conv1 = Convolution2D(32, 8, 8, activation='relu')(input_layer)
-
-        flatten = Flatten()(conv1)
+        input_layer = Input(shape = (84, 84, 3))
+        conv1 = Convolution2D(32, 8, 8, subsample=(4, 4), activation='relu')(input_layer)
+        conv2 = Convolution2D(64, 4, 4, subsample=(2, 2), activation='relu')(conv1)
+        conv3 = Convolution2D(64, 3, 3, activation = 'relu')(conv2)
+        flatten = Flatten()(conv3)
         fc1 = Dense(512)(flatten)
         advantage = Dense(self.actionSize)(fc1)
         fc2 = Dense(512)(flatten)
@@ -97,7 +95,7 @@ class duelDQN():
         model = Model(input = [input_layer], output=[prediction])
 
         # plot model 
-        # plot_model(model, to_file='../result/duelingDQN_model_exponential.png',show_shapes=True)
+        plot_model(model, to_file='../result/duelingDQN_model_exponential.png',show_shapes=True)
 
         # mean squared loss  = (Q_target - Q) ^2
         opti = Adam(lr=self.learningRate)
@@ -110,7 +108,7 @@ class duelDQN():
 
 
 class Replay_Memory():
-    def __init__(self, memory_size=2000, burn_in=1000):
+    def __init__(self, memory_size=50000, burn_in=10000):
         # The memory essentially stores transitions recorder from the agent
         # taking actions in the environment.
 

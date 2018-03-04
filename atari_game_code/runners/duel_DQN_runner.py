@@ -35,28 +35,31 @@ sys.path.insert(0, os.path.join(repo_path, 'environment'))
 sys.path.insert(0, os.path.join(repo_path, 'utils'))
 
 
-from environment.gridworld import gameEnv
-from agents.duel_DQN import *
-from utils.util import *
+from gridworld import gameEnv
+from duel_DQN import *
+from util import *
 
 class duel_DQN_runner():
     def __init__(self):
         self.path = '../model/'
-        self.numEpisodes = 1005
-        self.learningRate = 0.001
+        self.network = 'duel_DQN_runner'
+        self.numEpisodes = 10000
+        self.learningRate = 0.0001
         self.epsilon_start = 1
         self.epsilon = self.epsilon_start
         self.epsilon_end = 0.1
         self.annealingSteps = 10000
         self.epsilon_decay = (self.epsilon_start - self.epsilon_end)/self.annealingSteps
-
         self.gamma = 0.99
         self.gymEnv = gameEnv(partial=False, size=5)
         self.actionSize = self.gymEnv.actions
         self.duelDQN = duelDQN(self.learningRate, self.actionSize)
         self.model = self.duelDQN.model
+        self.target_model = self.duelDQN.target_model
         self.batch_size = 32
         self.skip = 4
+        self.max_epLength = 50
+        self.update_Q_steps = 1000
 
     def epsilon_greedy_policy(self, state):
         # Creating epsilon greedy probabilities to sample from.
@@ -107,35 +110,16 @@ class duel_DQN_runner():
         # extract information from memory
         for memory in minibatch:
 
-            '''
-            print("memory", memory.shape)
-            print("memory [0] ", memory[0][0])
-            print("memory [1]", memory[0][1])
-            print("memory [2]", memory[0][2])
-            print("memory [3]", memory[0][3])
-            print("memory [4]", memory[0][4])
-
-
-
-            '''
-
-
             state, action, reward, next_state, done = memory[0][0], memory[0][1], memory[0][2], memory[0][3], memory[0][4]
-            print("state", np.array(state).shape)
             state = np.reshape(state, [-1,84,84,3])
-            # print("state shape", state.shape)
             next_state = np.reshape(state, [-1,84, 84, 3])
 
-            # print("state shape", next_state.shape)
-
-            # plt.imshow(next_state[0])
-            # plt.savefig('../result/foo.png')
-            # print("reward from minibatch",reward)
             if done:
                 target = reward
             else:
                 # discounted reward
-                target = reward + self.gamma * np.amax(self.model.predict(next_state))
+                # like Q learning, get maximum Q value at S' but from target model
+                target = reward + self.gamma * np.amax(self.target_model.predict(next_state))
 
             # Q(S,A)
             target_f = self.model.predict(state)
@@ -156,20 +140,24 @@ class duel_DQN_runner():
         state = self.gymEnv.reset()
         state = self.processState(state)
         total_steps = 0
-
         print("training with replay")
         rewards_list = []
         memory = self.burn_in_memory()
         for e in range(self.numEpisodes):
             # S_t, A_t, R_t+1, S_t+1, A_t+1
             # S_t
-            print("e", e)
+            # print("e", e)
             done = False
             episode_reward = 0
+            ep_length = 0 
+            while not done and ep_length<self.max_epLength:
+                ep_length += 1
+                total_steps += 1
 
-            while not done:
-                print("steps",total_steps)
-                total_steps += 1  # total steps during the entire training process
+                if self.epsilon > self.epsilon_end:
+                    self.epsilon -= self.epsilon_decay
+
+
                 # A_t
                 action = self.epsilon_greedy_policy(state)
                 # R_t+1, S_t+1
@@ -179,8 +167,7 @@ class duel_DQN_runner():
                 # save S_t, A_t, R_t+1, S_t+1 to memory
 
 
-                if done:
-                    print("episode", e, "episode_reward", episode_reward)
+                if done or ep_length>=self.max_epLength:
 
                     rewards_list.append(episode_reward)
                     next_state = np.zeros(state.shape)
@@ -201,19 +188,17 @@ class duel_DQN_runner():
                 if total_steps % self.skip == 0:
                     self.replay(memory)
 
+                if total_steps % self.update_Q_steps == 0:
+                    # update target network
+                    self.duelDQN.update_target_model()
+
+                
             if (e >= 20 and e % 20 == 0):
-                plot_running_mean(rewards_list, "exponentialDecay_training" + self.network)
-                # self.test(e)
-                # plt.plot(rewards_list)
-                # plt.savefig('../result/reward.jpg')
-
-            if self.epsilon > self.epsilon_min:
-                self.epsilon -= self.epsilon_decay
-                # self.epsilon *= self.epsilon_decay
-                # if self.epsilon > self.epsilon_min:
-                # self.epsilon = 1./((e/50) + 10)
-
-
+                print("\n","episode=", e, " total_steps=",total_steps," mean reward=",np.mean(rewards_list[-10:]), " epsilon=", self.epsilon)
+                #if (e%20==0):
+                # plot_running_mean(rewards_list, "exponentialDecay_training" + self.network)
+                
+            
         self.save_model_weights()
 
         # return memory

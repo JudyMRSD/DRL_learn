@@ -23,7 +23,7 @@ class gameEnv():
         self.objects = []
         self.partial = partial
         a = self.reset()
-        plt.imshow(a,interpolation="nearest")
+        # plt.imshow(a,interpolation="nearest")
         
         
     def reset(self):
