@@ -122,9 +122,7 @@ class duel_DQN_runner():
                 target = reward + self.gamma * np.amax(self.target_model.predict(next_state))
 
             # Q(S,A)
-
             target_f = self.model.predict(state)
-            print("target_f shape", target_f.shape)
             # Q(S',A)
             target_f[0][action] = target
             # train the network with state and target_f, default batch size 32
@@ -148,7 +146,7 @@ class duel_DQN_runner():
         for e in range(self.numEpisodes):
             # S_t, A_t, R_t+1, S_t+1, A_t+1
             # S_t
-            # print("e", e)
+            print("e", e)
             done = False
             episode_reward = 0
             ep_length = 0 
@@ -236,6 +234,3 @@ class duel_DQN_runner():
                 state = next_state
 
         return memory
-
-
-
