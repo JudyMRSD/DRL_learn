@@ -66,17 +66,28 @@ class duelDQN():
         self.learningRate = learningRate
         self.network = "dueling"
         self.imgShape = (84, 84, 3)  # num frames = 1, 3 channel image
+        self.tau = 1000
 
         self.model = self._createModel()
         # duel dqn
         self.target_model = self._createModel()
         # initialize the target model so that the parameters in the two models are the same
         self.update_target_model()
+        
 
     def update_target_model(self):
-        print("self.model.get_weights()",len(self.model.get_weights()))# 12
-        print("weights", self.model.get_weights())
-        self.target_model.set_weights(self.model.get_weights())
+        # print("weights[0]",self.model.get_weights()[0]) # [[[[3.62457298e-02 ...
+        # print("weights[0]*100",self.model.get_weights()[0]*100)# [[[[3.62457299e+00  ...
+        
+        # targetweight = modelweight * tau + targetweight*(1-tau)
+        # op_holder.append(tfVars[idx+total_vars//2].assign((var.value()*tau) + ((1-tau)*tfVars[idx+total_vars//2].value())))
+        # https://github.com/awjuliani/DeepRL-Agents/blob/16ebef4bc36689c2d1859543b8c23aec8cda3a99/helper.py
+        old_W = self.model.get_weights()
+        oldTarget_W = self.target_model.get_weights()
+        tauVec = [self.tau]* len(old_W)
+        newTarget_W = np.multiply(old_W,tauVec) + np.multiply(oldTarget_W,tauVec)
+        # newTarget_W = old_W*tauVec + oldTarget_W*tauVec
+        self.target_model.set_weights(newTarget_W)
 
 
     # https://yilundu.github.io/2016/12/24/Deep-Q-Learning-on-Space-Invaders.html
@@ -107,39 +118,6 @@ class duelDQN():
         opti = Adam(lr=self.learningRate)
         model.compile(loss='mse', optimizer=opti)
 
-        '''
-        names = [weight.name for layer in model.layers for weight in layer.weights]
-        weights = model.get_weights()
-        
-        for name, weight in zip(names, weights):
-            print(name, weight.shape)
-        conv2d_1/kernel:0 (8, 8, 3, 32)
-        conv2d_1/bias:0 (32,)
-        conv2d_2/kernel:0 (4, 4, 32, 64)
-        conv2d_2/bias:0 (64,)
-        conv2d_3/kernel:0 (3, 3, 64, 64)
-        conv2d_3/bias:0 (64,)
-        conv2d_4/kernel:0 (7, 7, 64, 512)
-        conv2d_4/bias:0 (512,)
-        dense_2/kernel:0 (256, 4)
-        dense_2/bias:0 (4,)
-        dense_1/kernel:0 (256, 1)
-        dense_1/bias:0 (1,)
-        # target
-        conv2d_5/kernel:0 (8, 8, 3, 32)
-        conv2d_5/bias:0 (32,)
-        conv2d_6/kernel:0 (4, 4, 32, 64)
-        conv2d_6/bias:0 (64,)
-        conv2d_7/kernel:0 (3, 3, 64, 64)
-        conv2d_7/bias:0 (64,)
-        conv2d_8/kernel:0 (7, 7, 64, 512)
-        conv2d_8/bias:0 (512,)
-        dense_4/kernel:0 (256, 4)
-        dense_4/bias:0 (4,)
-        dense_3/kernel:0 (256, 1)
-        dense_3/bias:0 (1,)
-
-        '''
         return model
 
     def combine_A_V(self, x):
