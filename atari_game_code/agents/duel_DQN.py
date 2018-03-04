@@ -85,13 +85,11 @@ class duelDQN():
         conv1 = Convolution2D(32, 8, 8, subsample=(4, 4), activation='relu')(input_layer)
         conv2 = Convolution2D(64, 4, 4, subsample=(2, 2), activation='relu')(conv1)
         conv3 = Convolution2D(64, 3, 3, activation = 'relu')(conv2)
-        flatten = Flatten()(conv3)
-        fc1 = Dense(512)(flatten)
-        advantage = Dense(self.actionSize)(fc1)
-        fc2 = Dense(512)(flatten)
-        value = Dense(1)(fc2)
+        conv4 = Convolution2D(512, 7, 7, activation = 'relu')(conv3)
+        flatten = Flatten()(conv4)
+        y = Dense(self.actionSize+1)(flatten)
 
-        prediction = Lambda(self.combine_A_V, output_shape =(self.actionSize,))([advantage, value])
+        prediction = Lambda(self.combine_A_V, output_shape =(self.actionSize,))(y)
         model = Model(input = [input_layer], output=[prediction])
 
         # plot model 
@@ -103,7 +101,8 @@ class duelDQN():
         return model
 
     def combine_A_V(self, x):
-        return x[0]-K.mean(x[0])+x[1]
+        return K.expand_dims(x[:, 0]) + x[:, 1:] - K.mean(x[:, 1:], keepdims=True)
+        # return x[0]-K.mean(x[0])+x[1]
 
 
 
