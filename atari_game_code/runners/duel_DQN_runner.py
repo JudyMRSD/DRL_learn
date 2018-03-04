@@ -187,10 +187,11 @@ class duel_DQN_runner():
                 # skip frame to speed up the process
                 if total_steps % self.skip == 0:
                     self.replay(memory)
-
-                if total_steps % self.update_Q_steps == 0:
-                    # update target network
                     self.duelDQN.update_target_model()
+
+                #if total_steps % self.update_Q_steps == 0:
+                # update target network
+                #    self.duelDQN.update_target_model()
 
                 
             if (e >= 20 and e % 20 == 0):

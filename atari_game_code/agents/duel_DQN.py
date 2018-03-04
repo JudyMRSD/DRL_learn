@@ -66,7 +66,7 @@ class duelDQN():
         self.learningRate = learningRate
         self.network = "dueling"
         self.imgShape = (84, 84, 3)  # num frames = 1, 3 channel image
-        self.tau = 1000
+        self.tau = 0.001
 
         self.model = self._createModel()
         # duel dqn
