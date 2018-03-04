@@ -146,7 +146,7 @@ class duel_DQN_runner():
         for e in range(self.numEpisodes):
             # S_t, A_t, R_t+1, S_t+1, A_t+1
             # S_t
-            print("e", e)
+            # print("e", e)
             done = False
             episode_reward = 0
             ep_length = 0 
