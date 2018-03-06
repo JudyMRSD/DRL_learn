@@ -89,10 +89,17 @@ class duelDQN():
         x = Conv2D(filters=64, kernel_size=[4,4],strides=[2,2], activation='relu')(x)
         x = Conv2D(filters=64, kernel_size=[3,3],strides=[1,1],activation='relu')(x)
         x = Conv2D(filters=h_size, kernel_size=[7,7],strides=[1,1],activation='relu')(x)
-        fc0 = Lambda(lambda x: tf.reshape(x, [-1, h_size]))
+        fc0 = Lambda(lambda a: tf.reshape(a, [-1, h_size]))(x)
+        #fc0 = Flatten()(x)
+        # fc0 = K.reshape(x, (-1, h_size))
+
+        fc1 = Dense(h_size//2, activation='relu')(fc0)
+        state_values = Dense(1)(fc1)
         
-        state_values = Dense(1)(fc0)
-        advantages = Dense(self.actionSize)(fc0) 
+        fc2 = Dense(h_size//2, activation='relu')(fc0)
+        advantages = Dense(self.actionSize)(fc2) 
+
+
         advantages = Lambda(lambda x: x-tf.reduce_mean(x, axis=1, keep_dims=True))(advantages)
         state_action_values = Add()([state_values, advantages])
 

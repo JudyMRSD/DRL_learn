@@ -70,9 +70,8 @@ class duel_DQN_runner():
             a = np.random.randint(0, 4)
             return a
 
-        # input shape is [None ,4]
         state = np.reshape(state, [-1, 84,84,3])
-        # predict usse self.model, not target.model
+        # predict use self.model, not target.model
         q_values = self.model.predict(state)
         return np.argmax(q_values)
 
@@ -115,6 +114,7 @@ class duel_DQN_runner():
         for memory in minibatch:
 
             state, action, reward, next_state, done = memory[0][0], memory[0][1], memory[0][2], memory[0][3], memory[0][4]
+            print("state, action, reward, next_state, done", state, action, reward, next_state, done)
             state = np.reshape(state, [-1,84,84,3])
             next_state = np.reshape(state, [-1,84, 84, 3])
 
@@ -247,3 +247,8 @@ class duel_DQN_runner():
                 state = next_state
 
         return memory
+
+
+
+
+
