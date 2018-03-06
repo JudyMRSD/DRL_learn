@@ -64,7 +64,7 @@ class duelDQN():
         self.actionSize = actionSize
 
         self.learningRate = learningRate
-        self.network = "dueling2"
+        self.network = "dueling"
         self.imgShape = (84, 84, 3)  # num frames = 1, 3 channel image
         self.tau = 0.001
 
@@ -101,28 +101,9 @@ class duelDQN():
         x = Conv2D(filters=64, kernel_size=[3,3],strides=[1,1],activation='relu')(x)
         x = Conv2D(filters=h_size, kernel_size=[7,7],strides=[1,1],activation='relu')(x)
         x = Flatten()(x)
-        '''
-        x_value = Lambda(lambda x: x[:,:h_size//2])(x)
-        x_advantage = Lambda(lambda x: x[:,h_size//2:])(x)
-
-        #Process spliced data stream into value and advantage function
-        value = Dense(1, activation="linear")(x_value)
-        advantage = Dense(self.actionSize, activation="linear")(x_advantage)
-
-        prediction = Lambda(self.combine_A_V, output_shape =(self.actionSize,))([advantage, value])
-        model = Model(input = [input_layer], output=[prediction])
-
-        # plot model 
-        plot_model(model, to_file='../result/duelingDQN_model_exponential.png',show_shapes=True)
-
-        # mean squared loss  = (Q_target - Q) ^2
-        opti = Adam(lr=self.learningRate)
-        model.compile(loss='mse', optimizer=opti)
-
-        return model
-        '''
-        x_value = Dense(units=h_size//2, activation='relu')(x)
-        x_advantage = Dense(units=h_size//2, activation='relu')(x)
+        
+        x_value = Dense(units=15, activation='relu')(fc2)
+        x_advantage = Dense(units=15, activation='relu')(fc2)
         
         #Process spliced data stream into value and advantage function
         value = Dense(1, activation="linear")(x_value)
@@ -132,18 +113,12 @@ class duelDQN():
         model = Model(input = [input_layer], output=[prediction])
 
         # plot model 
-        plot_model(model, to_file='../result/dueling_dqn2.png',show_shapes=True)
+        plot_model(model, to_file='../result/dueling_lambda.png',show_shapes=True)
 
         # mean squared loss  = (Q_target - Q) ^2
         opti = Adam(lr=self.learningRate)
         model.compile(loss='mse', optimizer=opti)
 
-        # sumnmary for eval reward
-        self.rewards = tf.placeholder(tf.float32)
-        tf.summary.scalar('reward', tf.reduce_mean(self.rewards))
-        self.merged = tf.summary.merge_all()
-        
-        return model
 
     def combine_A_V(self, x):
         return x[0]-K.mean(x[0], axis=1,keepdims= True)+x[1]

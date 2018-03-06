@@ -36,16 +36,13 @@ sys.path.insert(0, os.path.join(repo_path, 'utils'))
 
 
 from gridworld import gameEnv
-from duel_DQN import *
+from DRQN import *
 from util import *
-from keras.callbacks import TensorBoard
 
-
-
-class duel_DQN_runner():
+class DRQN_runner():
     def __init__(self):
         self.path = '../model/'
-        self.network = 'duel_DQN_runner'
+        self.network = 'DRQN_runner'
         self.numEpisodes = 10000
         self.learningRate = 0.0001
         self.epsilon_start = 1
@@ -136,22 +133,19 @@ class duel_DQN_runner():
         state_array = np.squeeze(np.array(state_array), axis=1)
         target_f_array = np.squeeze(np.array(target_f_array), axis=1)
 
-        loss = self.model.fit(state_array, target_f_array, batch_size=self.batch_size, epochs=1, verbose=0)
-        return loss
+        self.model.fit(state_array, target_f_array, batch_size=self.batch_size, epochs=1, verbose=0)
+
 
     # training with replay
     def train(self):
-
         state = self.gymEnv.reset()
         state = self.processState(state)
         total_steps = 0
         print("training with replay")
         rewards_list = []
-        loss_list = []
-        memory = self.burn_in_memory()
-
+        
         for e in range(self.numEpisodes):
-            
+            memory = self.burn_in_memory()
             # S_t, A_t, R_t+1, S_t+1, A_t+1
             # S_t
             # print("e", e)
@@ -194,9 +188,7 @@ class duel_DQN_runner():
                 # train agent by sampling from memory
                 # skip frame to speed up the process
                 if total_steps % self.skip == 0:
-                    loss = self.replay(memory)
-                    loss_list.append(loss)
-                    # tf.summary.scalar("loss", loss)
+                    self.replay(memory)
                     self.duelDQN.update_target_model()
 
                 #if total_steps % self.update_Q_steps == 0:
@@ -204,14 +196,11 @@ class duel_DQN_runner():
                 #    self.duelDQN.update_target_model()
 
                 
-            if (e >= 10 and e % 10 == 0):
-                mean_reward = np.mean(rewards_list[-10:])
-                print("\n","episode=", e, " total_steps=",total_steps," mean reward=",mean_reward, " epsilon=", self.epsilon)
-                # tf.summary("mean_reward", mean_reward)
+            if (e >= 20 and e % 20 == 0):
+                print("\n","episode=", e, " total_steps=",total_steps," mean reward=",np.mean(rewards_list[-10:]), " epsilon=", self.epsilon)
                 #if (e%20==0):
-                plot_running_mean(rewards_list, "duelDQN" + self.network)
-                print("losslis", loss_list)
-                plotLoss(loss_list, "loss" + self.network)
+                # plot_running_mean(rewards_list, "exponentialDecay_training" + self.network)
+                
             
         self.save_model_weights()
 

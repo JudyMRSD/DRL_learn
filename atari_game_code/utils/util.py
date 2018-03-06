@@ -17,7 +17,7 @@ def running_mean(x, N):
 
 
 def plot_running_mean(rewards_list, filename):
-    smoothed_rews = running_mean(rewards_list, 50)
+    smoothed_rews = running_mean(rewards_list, 5)
 
     eps = np.arange(len(rewards_list))
     # print("smoothed_rews",smoothed_rews)
@@ -33,3 +33,13 @@ def plot_running_mean(rewards_list, filename):
     plt.xlabel('Episode')
     plt.ylabel('Total Reward')
     plt.savefig('../result/' + filename + '.jpg')
+
+def plotLoss(loss_list, filename):
+
+    # plt.plot(smoothed_rews)
+    # moving average of G_t
+    plt.plot(loss_list)
+    plt.xlabel('i')
+    plt.ylabel('Total Reward')
+    plt.savefig('../result/' + filename + '.jpg')
+
