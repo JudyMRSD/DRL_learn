@@ -132,7 +132,7 @@ class DRQN_runner():
 
         state_array = np.squeeze(np.array(state_array), axis=1)
         target_f_array = np.squeeze(np.array(target_f_array), axis=1)
-
+        
         self.model.fit(state_array, target_f_array, batch_size=self.batch_size, epochs=1, verbose=0)
 
 

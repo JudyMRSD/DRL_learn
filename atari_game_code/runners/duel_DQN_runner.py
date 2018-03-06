@@ -136,8 +136,8 @@ class duel_DQN_runner():
         state_array = np.squeeze(np.array(state_array), axis=1)
         target_f_array = np.squeeze(np.array(target_f_array), axis=1)
 
-        loss = self.model.fit(state_array, target_f_array, batch_size=self.batch_size, epochs=1, verbose=0)
-        return loss
+        self.model.fit(state_array, target_f_array, batch_size=self.batch_size, epochs=1, verbose=0)
+        # return loss
 
     # training with replay
     def train(self):
@@ -147,7 +147,7 @@ class duel_DQN_runner():
         total_steps = 0
         print("training with replay")
         rewards_list = []
-        loss_list = []
+        # loss_list = []
         memory = self.burn_in_memory()
 
         for e in range(self.numEpisodes):
@@ -194,8 +194,7 @@ class duel_DQN_runner():
                 # train agent by sampling from memory
                 # skip frame to speed up the process
                 if total_steps % self.skip == 0:
-                    loss = self.replay(memory)
-                    loss_list.append(loss)
+                    self.replay(memory)
                     # tf.summary.scalar("loss", loss)
                     self.duelDQN.update_target_model()
 
@@ -204,14 +203,14 @@ class duel_DQN_runner():
                 #    self.duelDQN.update_target_model()
 
                 
-            if (e >= 10 and e % 10 == 0):
+            if (e >= 10 and e % 100 == 0):
                 mean_reward = np.mean(rewards_list[-10:])
                 print("\n","episode=", e, " total_steps=",total_steps," mean reward=",mean_reward, " epsilon=", self.epsilon)
                 # tf.summary("mean_reward", mean_reward)
                 #if (e%20==0):
                 plot_running_mean(rewards_list, "duelDQN" + self.network)
-                print("losslis", loss_list)
-                plotLoss(loss_list, "loss" + self.network)
+                #print("losslis", loss_list)
+                #plotLoss(loss_list, "loss" + self.network)
             
         self.save_model_weights()
 
