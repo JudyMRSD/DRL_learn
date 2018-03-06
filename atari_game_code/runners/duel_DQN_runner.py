@@ -114,9 +114,9 @@ class duel_DQN_runner():
         for memory in minibatch:
 
             state, action, reward, next_state, done = memory[0][0], memory[0][1], memory[0][2], memory[0][3], memory[0][4]
-            print("state, action, reward, next_state, done", state, action, reward, next_state, done)
+            # print("state, action, reward, next_state, done", state, action, reward, next_state, done)
             state = np.reshape(state, [-1,84,84,3])
-            next_state = np.reshape(state, [-1,84, 84, 3])
+            next_state = np.reshape(next_state, [-1,84, 84, 3])
 
             if done:
                 target = reward
@@ -196,11 +196,11 @@ class duel_DQN_runner():
                 if total_steps % self.skip == 0:
                     self.replay(memory)
                     # tf.summary.scalar("loss", loss)
-                    self.duelDQN.update_target_model()
+                    # self.duelDQN.update_target_model()
 
-                #if total_steps % self.update_Q_steps == 0:
+                if total_steps % self.update_Q_steps == 0:
                 # update target network
-                #    self.duelDQN.update_target_model()
+                    self.duelDQN.update_target_model()
 
                 
             if (e >= 10 and e % 100 == 0):
