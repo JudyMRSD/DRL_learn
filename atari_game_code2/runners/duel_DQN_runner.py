@@ -41,6 +41,7 @@ from util import *
 from keras.callbacks import TensorBoard
 
 
+from keras.callbacks import History 
 
 class duel_DQN_runner():
     def __init__(self):
@@ -65,15 +66,17 @@ class duel_DQN_runner():
         self.update_Q_steps = 1000
 
     def epsilon_greedy_policy(self, state):
-        # Creating epsilon greedy probabilities to sample from.
-        if np.random.rand(1) <= self.epsilon:
-            a = np.random.randint(0, 4)
-            return a
 
         state = np.reshape(state, [-1, 84,84,3])
         # predict use self.model, not target.model
         q_values = self.model.predict(state)
-        return np.argmax(q_values)
+
+        # Creating epsilon greedy probabilities to sample from.
+        if np.random.rand(1) <= self.epsilon:
+            a = np.random.randint(0, 4)
+            return a, q_values
+        else:
+            return np.argmax(q_values), q_values
 
 
     def greedy_policy(self, state):
@@ -103,6 +106,8 @@ class duel_DQN_runner():
 
     # replay()  https://medium.com/@gtnjuvin/my-journey-into-deep-q-learning-with-keras-and-gym-3e779cc12762
     def replay(self, memory):
+        history = History()
+
         minibatch = memory.sample_batch()
 
         # state_array = np.empty((1,self.stateSize,))
@@ -136,8 +141,10 @@ class duel_DQN_runner():
         state_array = np.squeeze(np.array(state_array), axis=1)
         target_f_array = np.squeeze(np.array(target_f_array), axis=1)
         # print("state array", state_array.shape, "   target f array",target_f_array.shape)# state array (32, 84, 84, 3)    target f array (32, 4)
-        self.model.fit(state_array, target_f_array, batch_size=self.batch_size, epochs=1, verbose=0)
-        # return loss
+        self.model.fit(state_array, target_f_array, batch_size=self.batch_size, epochs=1, verbose=0, callbacks=[history])
+        print("loss",history.history['loss'])
+        loss =history.history['loss']
+        return loss
 
     # training with replay
     def train(self,sess):
@@ -148,7 +155,6 @@ class duel_DQN_runner():
         total_steps = 0
         print("training with replay")
         rewards_list = []
-        # loss_list = []
         memory = self.burn_in_memory()
 
         for e in range(self.numEpisodes):
@@ -158,6 +164,7 @@ class duel_DQN_runner():
             # print("e", e)
             done = False
             episode_reward = 0
+            _last_reward = 0
             ep_length = 0 
             while not done and ep_length<self.max_epLength:
                 ep_length += 1
@@ -168,17 +175,19 @@ class duel_DQN_runner():
 
 
                 # A_t
-                action = self.epsilon_greedy_policy(state)
+                action, q_values = self.epsilon_greedy_policy(state)
                 # R_t+1, S_t+1
                 next_state, reward, done = self.gymEnv.step(action)
                 next_state = self.processState(next_state)
                 episode_reward += reward
+
                 # save S_t, A_t, R_t+1, S_t+1 to memory
 
 
                 if done or ep_length>=self.max_epLength:
 
                     rewards_list.append(episode_reward)
+                    _last_reward = episode_reward
                     next_state = np.zeros(state.shape)
                     next_state = self.processState(next_state)
 
@@ -195,9 +204,12 @@ class duel_DQN_runner():
                 # train agent by sampling from memory
                 # skip frame to speed up the process
                 if total_steps % self.skip == 0:
-                    self.replay(memory)
+                    loss = self.replay(memory)
                     # tf.summary.scalar("loss", loss)
                     # self.duelDQN.update_target_model()
+                    summary = sess.run(self.duelDQN.merged, feed_dict={self.duelDQN.loss:loss, self.duelDQN.Q:np.max(q_values),
+                        self.duelDQN.reward: _last_reward})
+                    test_writer.add_summary(summary, total_steps)
 
                 if total_steps % self.update_Q_steps == 0:
                 # update target network

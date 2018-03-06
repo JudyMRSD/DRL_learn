@@ -76,10 +76,17 @@ class duelDQN():
         # initialize the target model so that the parameters in the two models are the same
         self.update_target_model()
 
-        # sumnmary for eval reward
-        self.rewards = tf.placeholder(tf.float32)
-        tf.summary.scalar('reward', tf.reduce_mean(self.rewards))
+        # sumnmary for loss
+        self.loss = tf.placeholder(tf.float32)
+        tf.summary.scalar('loss', tf.reduce_mean(self.loss))
+
+        self.reward = tf.placeholder(tf.float32)
+        tf.summary.scalar('reward', tf.reduce_mean(self.reward))
+
+        self.Q = tf.placeholder(tf.float32)
+        tf.summary.scalar('Q', tf.reduce_mean(self.Q))
         self.merged = tf.summary.merge_all()
+
         
     def update_target_model(self):
         self.target_model.set_weights(self.model.get_weights())
