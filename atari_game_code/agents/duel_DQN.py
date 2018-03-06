@@ -76,21 +76,8 @@ class duelDQN():
         # initialize the target model so that the parameters in the two models are the same
         self.update_target_model()
         
-
     def update_target_model(self):
-        # print("weights[0]",self.model.get_weights()[0]) # [[[[3.62457298e-02 ...
-        # print("weights[0]*100",self.model.get_weights()[0]*100)# [[[[3.62457299e+00  ...
-        
-        # targetweight = modelweight * tau + targetweight*(1-tau)
-        # op_holder.append(tfVars[idx+total_vars//2].assign((var.value()*tau) + ((1-tau)*tfVars[idx+total_vars//2].value())))
-        # https://github.com/awjuliani/DeepRL-Agents/blob/16ebef4bc36689c2d1859543b8c23aec8cda3a99/helper.py
-        old_W = self.model.get_weights()
-        oldTarget_W = self.target_model.get_weights()
-        tauVec = [self.tau]* len(old_W)
-        newTarget_W = np.multiply(old_W,tauVec) + np.multiply(oldTarget_W,tauVec)
-        # newTarget_W = old_W*tauVec + oldTarget_W*tauVec
-        self.target_model.set_weights(newTarget_W)
-
+        self.target_model.set_weights(self.model.get_weights())
 
     # https://yilundu.github.io/2016/12/24/Deep-Q-Learning-on-Space-Invaders.html
     # https://morvanzhou.github.io/tutorials/machine-learning/reinforcement-learning/4-7-dueling-DQN/
@@ -102,30 +89,9 @@ class duelDQN():
         x = Conv2D(filters=64, kernel_size=[4,4],strides=[2,2], activation='relu')(x)
         x = Conv2D(filters=64, kernel_size=[3,3],strides=[1,1],activation='relu')(x)
         x = Conv2D(filters=h_size, kernel_size=[7,7],strides=[1,1],activation='relu')(x)
-        fc0 = Flatten()(x)
-        '''
-        x_value = Lambda(lambda x: x[:,:h_size//2])(x)
-        x_advantage = Lambda(lambda x: x[:,h_size//2:])(x)
-
-        #Process spliced data stream into value and advantage function
-        value = Dense(1, activation="linear")(x_value)
-        advantage = Dense(self.actionSize, activation="linear")(x_advantage)
-
-        prediction = Lambda(self.combine_A_V, output_shape =(self.actionSize,))([advantage, value])
-        model = Model(input = [input_layer], output=[prediction])
-
-        # plot model 
-        plot_model(model, to_file='../result/duelingDQN_model_exponential.png',show_shapes=True)
-
-        # mean squared loss  = (Q_target - Q) ^2
-        opti = Adam(lr=self.learningRate)
-        model.compile(loss='mse', optimizer=opti)
-
-        return model
-        '''
+        fc0 = Lambda(lambda x: tf.reshape(x, [-1, h_size]))
         
         state_values = Dense(1)(fc0)
-
         advantages = Dense(self.actionSize)(fc0) 
         advantages = Lambda(lambda x: x-tf.reduce_mean(x, axis=1, keep_dims=True))(advantages)
         state_action_values = Add()([state_values, advantages])
