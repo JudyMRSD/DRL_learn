@@ -89,10 +89,13 @@ class gameEnv():
         ended = False
         for other in others:
             if hero.x == other.x and hero.y == other.y:
+                # print("meet block!!!!!")
                 self.objects.remove(other)
                 if other.reward == 1:
+                    #print("reward    +1")
                     self.objects.append(gameOb(self.newPosition(),1,1,1,1,'goal'))
                 else: 
+                    #print("penulty   -1")
                     self.objects.append(gameOb(self.newPosition(),1,1,0,-1,'fire'))
                 return other.reward,False
         if ended == False:
