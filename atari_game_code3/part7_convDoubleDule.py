@@ -227,6 +227,9 @@ class duelDQN():
                     
                     rewards_list.append(episode_reward)
                     _last_reward = episode_reward
+                    
+                    rList.append(episode_reward)
+
                     if done:
                         next_state = np.zeros(state.shape)
                     #print("next state shape", next_state.shape)
@@ -245,11 +248,7 @@ class duelDQN():
                     state = np.reshape(state, [-1, 84,84,3])
 
                     episode_reward = 0
-                    # Double DQN
-                    # every episode update the target model to be same with model
-                    # question: how often update model?
-                    self.update_target_model()
-
+                    
                 else:
 
                     #plt.imshow(state)
@@ -265,6 +264,12 @@ class duelDQN():
                 if total_steps % self.skip == 0:
                     # train agent by sampling from memory
                     loss = self.replay(memory)
+                    # Double DQN
+                    # every episode update the target model to be same with model
+                    # question: how often update model?
+                    if total_steps % 1000 == 0:
+                        self.update_target_model()
+
 
                     #summary = sess.run(self.merged, feed_dict={self.loss:loss, self.Q:np.max(q_values),
                     #    self.reward: _last_reward,  self.currentEpsilon:self.epsilon})
@@ -275,7 +280,7 @@ class duelDQN():
 
                 if self.epsilon > self.epsilon_end:
                         self.epsilon -= self.epsilon_decay
-            rList.append(episode_reward)
+            
             if len(rList) % 20 == 0:
                     print("total_steps", total_steps, "mean reward", np.mean(rList[-10:]), "epsilon", self.epsilon)
             
