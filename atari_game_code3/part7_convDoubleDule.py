@@ -87,7 +87,7 @@ class duelDQN():
         # sumnmary for loss
         self.loss = tf.placeholder(tf.float32)
         # print("loss shape",tf.shape(self.loss)) #shape=(?,)
-        tf.summary.scalar('loss', tf.reduce_mean(self.loss))
+        tf.summary.scalar('loss-81ffb76', tf.reduce_mean(self.loss))
 
         self.reward = tf.placeholder(tf.float32)
         tf.summary.scalar('reward', self.reward)
@@ -227,7 +227,7 @@ class duelDQN():
                     
                     rewards_list.append(episode_reward)
                     _last_reward = episode_reward
-                    
+
                     rList.append(episode_reward)
 
                     if done:
@@ -267,7 +267,7 @@ class duelDQN():
                     # Double DQN
                     # every episode update the target model to be same with model
                     # question: how often update model?
-                    if total_steps % 1000 == 0:
+                    if total_steps % 250 == 0:
                         self.update_target_model()
 
 
