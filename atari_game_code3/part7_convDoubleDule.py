@@ -36,6 +36,7 @@ from keras import backend as K
 from collections import deque
 from keras.layers.convolutional import Conv2D
 from keras.layers import Dense, Input, Lambda, Activation, Add, average, Subtract
+from keras.utils.vis_utils import plot_model
 
 
 from keras.callbacks import TensorBoard
@@ -111,14 +112,19 @@ class duelDQN():
         x = Conv2D(filters=64, kernel_size=[4,4],strides=[2,2], activation='relu')(x)
         x = Conv2D(filters=64, kernel_size=[3,3],strides=[1,1],activation='relu')(x)
         x = Conv2D(filters=h_size, kernel_size=[7,7],strides=[1,1],activation='relu')(x)
-        fc0 = Lambda(lambda a: tf.reshape(a, [-1, h_size]))(x)
-       
-        fc1 = Dense(h_size//2, activation='relu')(fc0)
-        state_values = Dense(1)(fc1)
         
-        fc2 = Dense(h_size//2, activation='relu')(fc0)
-        advantages = Dense(self.actionSize)(fc2) 
+        x_value = Lambda(lambda x: x[:,:,:,:h_size//2])(x)
+        
+        x_advantage = Lambda(lambda x: x[:,:,:,h_size//2:])(x)
 
+
+        x_value = Lambda(lambda a: tf.reshape(a, [-1, h_size//2]))(x_value)
+
+        x_advantage = Lambda(lambda a: tf.reshape(a, [-1, h_size//2]))(x_advantage)
+
+        #Process spliced data stream into value and advantage function
+        state_values = Dense(1, activation="linear")(x_value)
+        advantages = Dense(self.actionSize, activation="linear")(x_advantage)
 
         advantages = Lambda(lambda x: x-tf.reduce_mean(x, axis=1, keep_dims=True))(advantages)
         state_action_values = Add()([state_values, advantages])
@@ -126,6 +132,8 @@ class duelDQN():
         model = Model([input_layer], state_action_values)
         opt = keras.optimizers.Adam(lr=self.learningRate)
         model.compile(optimizer=opt, loss='mse')
+
+        plot_model(model, to_file='./modelPlot/duel.png',show_shapes=True)
 
         return model
 
@@ -177,7 +185,7 @@ class duelDQN():
 
     def train(self, sess):
         train_writer = tf.summary.FileWriter('./summary/', sess.graph)
-
+        rList = []
         state = self.gymEnv.reset()
         print("state shape", state.shape)
         total_steps = 0
@@ -215,7 +223,7 @@ class duelDQN():
                 episode_reward += reward
                 #  save S_t, A_t, R_t+1, S_t+1 to memory
                 if done or ep_length>=self.max_epLength:
-                    print("episode", e, "episode_reward", episode_reward, "total steps", total_steps, "epsilon", self.epsilon)
+                    # print("episode", e, "episode_reward", episode_reward, "total steps", total_steps, "epsilon", self.epsilon)
                     
                     rewards_list.append(episode_reward)
                     _last_reward = episode_reward
@@ -257,14 +265,19 @@ class duelDQN():
                 if total_steps % self.skip == 0:
                     # train agent by sampling from memory
                     loss = self.replay(memory)
+
+                    #summary = sess.run(self.merged, feed_dict={self.loss:loss, self.Q:np.max(q_values),
+                    #    self.reward: _last_reward,  self.currentEpsilon:self.epsilon})
                     summary = sess.run(self.merged, feed_dict={self.loss:loss, self.Q:np.max(q_values),
-                        self.reward: _last_reward,  self.currentEpsilon:self.epsilon})
+                        self.reward: episode_reward,  self.currentEpsilon:self.epsilon})
                     train_writer.add_summary(summary, total_steps)
 
 
                 if self.epsilon > self.epsilon_end:
                         self.epsilon -= self.epsilon_decay
-
+            rList.append(episode_reward)
+            if len(rList) % 20 == 0:
+                    print("total_steps", total_steps, "mean reward", np.mean(rList[-10:]), "epsilon", self.epsilon)
             
 
 
