@@ -1,33 +1,29 @@
 # tutorial:
-# Many to 1 :   
-# LSTM input: batch size  x  time steps  x  num input features(32) 
-#             time steps: number of words in a sentence = 50  
-#             each word is represented by a vector of length 32
-# LSTM output: batch size  x   num output featuers (1)
 # https://machinelearningmastery.com/sequence-classification-lstm-recurrent-neural-networks-python-keras/
-# test result after 25000 epochs : Accuracy:85.85%
 
-# 25000/25000 [==============================] - 608s 24ms/step - loss: 0.4329 - acc: 0.7978 - val_loss: 0.3687 - val_acc: 0.8427
-# Epoch 2/3
-# 25000/25000 [==============================] - 615s 25ms/step - loss: 0.2888 - acc: 0.8853 - val_loss: 0.3188 - val_acc: 0.8711
-# Epoch 3/3
-# 25000/25000 [==============================] - 580s 23ms/step - loss: 0.2504 - acc: 0.9008 - val_loss: 0.3332 - val_acc: 0.8585
-# Accuracy:85.85%
+# output:
+#24960/25000 [============================>.] - ETA: 0s - loss: 0.5241 - acc: 0.7302   
 
+#25000/25000 [==============================] - 628s 25ms/step - loss: 0.5239 - acc: 0.7303 - val_loss: 0.3920 - val_acc: 0.8297
+#Epoch 2/3
+#25000/25000 [==============================] - 636s 25ms/step - loss: 0.3291 - acc: 0.8614 - val_loss: 0.3519 - val_acc: 0.8599
+#Epoch 3/3
+#25000/25000 [==============================] - 599s 24ms/step - loss: 0.2606 - acc: 0.8980 - val_loss: 0.2980 - val_acc: 0.8785
+#Accuracy:87.85%
 import numpy as np
 from keras.datasets import imdb
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import LSTM
+from keras.layers import Dropout
 from keras.utils.vis_utils import plot_model  
-import tensorflow as tf 
+
 from keras.layers.embeddings import Embedding
 from keras.preprocessing import sequence
 # fix random seed for reproducibility
 np.random.seed(7)
 
 
-sess = tf.Session()
 
 
 # Part 1.  load an preprocess data
@@ -58,15 +54,17 @@ embedding_vector_length = 32
 model = Sequential()
 
 # The first layer is the Embedded layer that uses 
-# 32 (embedding_vector_length)length vectors 
-# to represent each word
+# 32 (embedding_vector_length)length vectors to represent each word
 
 # Turns positive integers (indexes) into dense vectors of fixed size. 
 # eg. [[4], [20]] -> [[0.25, 0.1], [0.6, -0.2]]
 model.add(Embedding(top_words, embedding_vector_length, input_length = max_review_length))
+# randomly setting a fraction rate of input units to 0 
+model.add(Dropout(0.2))
 # The next layer is the LSTM layer with 100 memory units 
 model.add(LSTM(100))
 
+model.add(Dropout(0.2))
 # Finally, because this is a classification problem we use 
 # a Dense output layer with a single neuron 
 # and a sigmoid activation function 
@@ -79,12 +77,11 @@ model.add(Dense(1, activation='sigmoid'))
 # The efficient ADAM optimization algorithm is used. 
 model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-train_writer = tf.summary.FileWriter('./log/simpleLSTM', sess.graph)
 
 # The model is fit for only 2 epochs because it quickly overfits the problem. 
 # A large batch size of 64 reviews is used to space out weight updates.
 print(model.summary())
-plot_model(model, to_file='./modelPlot/SimpleLSTM.png',show_shapes=True)
+plot_model(model, to_file='./modelPlot/SimpleLSTM_dropout.png',show_shapes=True)
 
 model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=3, batch_size=64)
 
@@ -92,7 +89,6 @@ model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=3, batch_si
 scores = model.evaluate(X_test, y_test, verbose=0)
 print("Accuracy:%.2f%%" %(scores[1]*100))
 
-train_writer.close()
 
 
 
