@@ -16,10 +16,12 @@ from keras.layers import Conv2D, MaxPooling2D, Input, Dense, Flatten
 from keras.optimizers import Adam
 
 model = Sequential()
-# 4D tensor with shape: (samples, channels, rows, cols)
-model.add(TimeDistributed(Conv2D(filters=32, kernel_size = (8, 8), subsample=(4,4), activation='relu', data_format='channels_first'),input_shape=(32, 3, 84,84)))
-model.add(TimeDistributed(Conv2D(filters=64, kernel_size = (4, 4), subsample=(2,2), activation='relu')))
-model.add(TimeDistributed(Conv2D(filters=64, kernel_size = (3, 3), activation='relu')))
+# conv2d (batch_size, height, width, channels).
+# And the TimeDistributed will require an additional dimension: (batch_size, frames, height, width, channels)
+
+model.add(TimeDistributed(Conv2D(filters=1, kernel_size = [2, 2], subsample=[2,2], activation='relu'), input_shape=(20, 10,10,3)))
+#model.add(TimeDistributed(Conv2D(filters=64, kernel_size = (4, 4), subsample=(2,2), activation='relu')))
+#model.add(TimeDistributed(Conv2D(filters=64, kernel_size = (3, 3), activation='relu')))
 model.add(TimeDistributed(Flatten()))
 
 # Use all traces for training
