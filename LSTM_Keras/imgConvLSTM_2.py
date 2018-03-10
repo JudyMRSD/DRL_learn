@@ -1,4 +1,6 @@
 #https://github.com/flyyufelix/VizDoom-Keras-RL/blob/4fc27ce3d400eba5422d39e2fad565d0503a6149/networks.py
+# LSTM_Conv_img_2 compiles and prints out graph same as imgConvLSTM.py
+# only difference is not using Sequential()
 import numpy as np
 from keras.utils.vis_utils import plot_model  
 
