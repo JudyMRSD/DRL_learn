@@ -123,14 +123,14 @@ class drqn():
         x_lstm = LSTM(h_size,  activation='tanh')(x_flat)
         x_lstm = Lambda(lambda a: tf.reshape(a, [-1, h_size]))(x_lstm)
 
-        x_value = Lambda(lambda x: x[:,h_size//2])(x_lstm)
+        x_value = Lambda(lambda x: x[:,:h_size//2])(x_lstm)
         
         x_advantage = Lambda(lambda x: x[:,h_size//2:])(x_lstm)
 
 
-        x_value = Lambda(lambda a: tf.reshape(a, [-1, h_size//2]))(x_value)
+        #x_value = Lambda(lambda a: tf.reshape(a, [-1, h_size//2]))(x_value)
 
-        x_advantage = Lambda(lambda a: tf.reshape(a, [-1, h_size//2]))(x_advantage)
+        #x_advantage = Lambda(lambda a: tf.reshape(a, [-1, h_size//2]))(x_advantage)
 
         #Process spliced data stream into value and advantage function
         state_values = Dense(1, activation="linear")(x_value)
