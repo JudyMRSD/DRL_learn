@@ -13,6 +13,9 @@ import sys
 import keras, tensorflow as tf, numpy as npy, gym, sys, copy, argparse
 from keras import backend as K
 from keras.models import Model
+from keras.layers import TimeDistributed
+from keras.layers import LSTM
+
 
 
 from keras.models import Sequential
@@ -46,7 +49,7 @@ from keras.callbacks import History
 
 
 
-class duelDQN():
+class drqn():
     def __init__(self):
         # Define your network architecture here. It is also a good idea to define any training operations
         # and optimizers here, initialize your variables, or alternately compile your model here.
@@ -107,20 +110,27 @@ class duelDQN():
     def _createModel(self):
         h_size = 512
         # model = Sequential()
-        input_layer = Input(shape = (84, 84, 3))
-        x = Conv2D(filters=32, kernel_size=[8,8], strides=[4,4], activation='relu',input_shape=(84, 84, 3))(input_layer)
-        x = Conv2D(filters=64, kernel_size=[4,4],strides=[2,2], activation='relu')(x)
-        x = Conv2D(filters=64, kernel_size=[3,3],strides=[1,1],activation='relu')(x)
-        x = Conv2D(filters=h_size, kernel_size=[7,7],strides=[1,1],activation='relu')(x)
+        numFrames = 32
+        input_layer = Input(shape = (numFrames, 84, 84, 3))
+        x = TimeDistributed(Conv2D(filters=32, kernel_size=[8,8], strides=[4,4], activation='relu'))(input_layer)
+        x = TimeDistributed(Conv2D(filters=64, kernel_size=[4,4],strides=[2,2], activation='relu'))(x)
+        x = TimeDistributed(Conv2D(filters=64, kernel_size=[3,3],strides=[1,1],activation='relu'))(x)
+        x = TimeDistributed(Conv2D(filters=h_size, kernel_size=[7,7],strides=[1,1],activation='relu'))(x)
+        # flatten
+        x_flat = TimeDistributed(Flatten())(x)
+
+        # add an LSTM layer 
+        x_lstm = LSTM(h_size,  activation='tanh')(x_flat)
+        x_lstm = Lambda(lambda a: tf.reshape(a, [-1, h_size]))(x_lstm)
+
+        x_value = Lambda(lambda x: x[:,:h_size//2])(x_lstm)
         
-        x_value = Lambda(lambda x: x[:,:,:,:h_size//2])(x)
-        
-        x_advantage = Lambda(lambda x: x[:,:,:,h_size//2:])(x)
+        x_advantage = Lambda(lambda x: x[:,h_size//2:])(x_lstm)
 
 
-        x_value = Lambda(lambda a: tf.reshape(a, [-1, h_size//2]))(x_value)
+        #x_value = Lambda(lambda a: tf.reshape(a, [-1, h_size//2]))(x_value)
 
-        x_advantage = Lambda(lambda a: tf.reshape(a, [-1, h_size//2]))(x_advantage)
+        #x_advantage = Lambda(lambda a: tf.reshape(a, [-1, h_size//2]))(x_advantage)
 
         #Process spliced data stream into value and advantage function
         state_values = Dense(1, activation="linear")(x_value)
@@ -133,7 +143,7 @@ class duelDQN():
         opt = keras.optimizers.Adam(lr=self.learningRate)
         model.compile(optimizer=opt, loss='mse')
 
-        plot_model(model, to_file='./modelPlot/duel.png',show_shapes=True)
+        plot_model(model, to_file='./modelPlot/drqn.png',show_shapes=True)
 
         return model
 
@@ -400,10 +410,10 @@ def main(args):
     # Setting this as the default tensorflow session.
     keras.backend.tensorflow_backend.set_session(sess)
     #with tf.device('/gpu:0'):
-    duel = duelDQN()
+    myDrqn = drqn()
 
     print("train double dqn, with replay")
-    duel.train(sess)
+    myDrqn.train(sess)
 
 
 # You want to create an instance of the DQN_Agent class here, and then train / test it.
