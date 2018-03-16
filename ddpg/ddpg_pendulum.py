@@ -3,7 +3,8 @@ import numpy as np
 from collections import namedtuple, deque
 from keras import layers, models, optimizers
 from keras import backend as K
-
+import sys
+import gym
 
 # reference: Udacity deep learning tutorial
 # https://classroom.udacity.com/nanodegrees/nd101/parts/7d0218b1-1a81-4d49-95f7-14b015020851/modules/691b7845-f7d8-413d-90c7-971cd5016b5c/lessons/fef7e79a-0941-460b-936c-d24c759ff700/concepts/d254347a-68f4-47d0-912a-33fd79719cf8
@@ -147,12 +148,13 @@ class Critic:
         )
 
 class DDPG():
-    def __init__(self, task):
+    def __init__(self, task, env):
         self.task = task
         self.state_size = task.state_size
         self.action_size = task.action_size
         self.action_low = task.action_low
         self.action_high = task.action_high
+        self.env = env
 
         # two copies of each model - one local and one target
         # This is an extension of the "Fixed Q Targets" technique from Deep Q-Learning,
@@ -248,6 +250,57 @@ class DDPG():
         new_weights = self.tau*local_weights+ (1-self.tau)*target_weights
         target_model.set_weights(new_weights)
 
+    def initialize_memory(self):
+        memory = ReplayBuffer()
+        state = self.gymEnv.reset() # question: should I reshape it before storing?
+        for i in range(memory.burn_in):
+            # make a random action
+            action = np.random.randint(0,4)
+
+            next_state, reward, done = self.gymEnv.step(action)
+
+            memory.append((state, action, reward, next_state, done))
+
+            if done:
+                state = self.gymEnv.reset()
+        return memory
+
+
+    def train(self):
+        state = self.gymEnv.reset()
+        total_steps = 0
+
+        print("training with replay")
+        rewards_list = []
+        memory = self.burn_in_memory()
+        # train and keep adding new experiences to memory
+        for e in range(self.numEpisodes):
+            done = False
+            episode_reward = 0
+            ep_length = 0
+
+            while not done:
+                ep_length += 1
+                total_steps += 1
+
+                # A_t
+                action, q_values = self.epsilon_greedy_policy(state)
+                # R_t+1, S_t+1
+                next_state, reward, done = self.gymEnv.step(action)
+
+                episode_reward += reward
+                #  save S_t, A_t, R_t+1, S_t+1 to memory
+                memory.append((state, action, reward, next_state, done))
+
+                if done:
+                    rewards_list.append(episode_reward)
+                    # start new episode
+                    state = self.gymEnv.reset()
+                    episode_reward = 0
+
+                else:
+                    memory.append((state, action, reward, next_state, done))
+                    state = next_state
 
 class OUNoise:
     def __init__(self, size, mu, theta, sigma):
@@ -285,9 +338,28 @@ class OUNoise:
         return self.state
 
 
+def main(args):
+    # prepare variables related to the environment
+    gymEnv = gym.make('Pendulum - v0')
+
+    env = gym.make('Pendulum-v0')
+
+    state_size = env.observation_space.shape[0]
+    action_size = env.action_space.shape[0]
+    action_bound = env.action_space.high
+
+    task = namedtuple("myTask", field_names=["state_size", "action_size", "action_low", "action_high"])
+    ddpgTask = task(state_size,action_size, -action_bound, action_bound)
+
+    ddpgAgent = DDPG(task, env)
+
+    ddpgAgent.train()
 
 
+    return
 
+if __name__ == '__main__':
+    main(sys.argv)
 
 
 
