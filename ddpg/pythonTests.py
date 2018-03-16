@@ -4,3 +4,7 @@ a = namedtuple("Experience", field_names=["state", "action", "reward", "next_sta
 b = a(0, 1, 2, 3, 4)
 
 print(b.action)
+
+input = [1,2,3]
+print(*input)# 1 2 3
+print(input)# [1, 2, 3]
