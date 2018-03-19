@@ -87,6 +87,7 @@ class Actor:
         # inside get_updates:
         # 1. get_gradients(loss, params)     dL/dW
         # 2. question : what does get_updates do?
+        # https://github.com/keras-team/keras/blob/master/keras/optimizers.py
         updates_op = optimizer.get_updates(params=self.model.trainable_weights, loss = loss)
         # keras.backend.function(inputs, outputs, updates = None)
         # inputs: List of placeholder tensors
@@ -94,6 +95,9 @@ class Actor:
         # updates: List of update ops
         # K.learning_phase: The learning phase flag is a bool tensor (0 = test, 1 = train) to be passed
         # as input to any Keras function that uses a different behavior at train time and test time.
+
+        # input: similar to tensorflow feed_dict
+        # updates: updates_op.run(feed_dict=....
         self.train_fn = K.function(
             inputs=[self.model.input, action_gradients, K.learning_phase()],
             outputs = [],
@@ -121,7 +125,7 @@ class Critic:
         # hidden layer for action pathway
         net_actions = layers.Dense(units=32, activation='relu')(actions)
         net_actions = layers.Dense(units=64, activation='relu')(net_actions)
-        # Hyper parameters: layer size, activations, batch normalization, tegularization
+        # Hyper parameters: layer size, activations, batch normalization, regularization
 
         # combine state and action pathways
         net = layers.Add()([net_states, net_actions])
@@ -155,7 +159,7 @@ class DDPG():
         self.action_low = task.action_low
         self.action_high = task.action_high
         self.env = env
-
+        self.numEpisodes = 10000
         # two copies of each model - one local and one target
         # This is an extension of the "Fixed Q Targets" technique from Deep Q-Learning,
         # and is used to decouple the parameters being updated from the ones that are producing target values.
@@ -169,19 +173,20 @@ class DDPG():
         self.critic_target = Critic(self.state_size, self.action_size)
 
         # Initialize target model parameters with local model parameters
-        self.critic_target.ser_weights(self.critic_local.model.get_weights())
-        self.actor_target.set_weights(self.actor_local.model.get_weights())
+        self.critic_target.model.set_weights(self.critic_local.model.get_weights())
+        self.actor_target.model.set_weights(self.actor_local.model.get_weights())
 
         # Noise process
         self.exploration_mu = 0
         self.exploration_theta = 0.15
         self.exploration_sigma = 0.2
-        self.noise = OUNoise(self.action_size, self.exploration_mu, self.exploration_theta)
+        # size, mu, theta, sigma
+        self.noise = OUNoise(self.action_size, self.exploration_mu, self.exploration_theta, self.exploration_sigma)
 
         # Replay Memory
         self.buffer_size = 100000
         self.batch_size = 64
-        self.burn_in = 64
+        self.burn_in = 1000
         self.memory = ReplayBuffer(self.buffer_size, self.burn_in)
 
         # Hyper parameters
@@ -190,17 +195,23 @@ class DDPG():
 
     def reset_episode(self):
         self.noise.reset()
-        state = self.task.reset()
-        self.last_state = state
+        # state = self.task.reset()
+        # S_t
+        # state = self.env.reset()
+        state = self.env.reset()
         return state
 
-    def step(self, action, reward, next_state, done):
+    def step(self, state, action, episodeReward):
+        next_state, reward, done, info = self.env.step(action)
         # Save experience / reward
-        self.memory.add(self.last_state, action, reward, next_state, done)
+        self.memory.append(state, action, reward, next_state, done)
         # learn, if enough samples are available in memory
-        if len(self.memory) > self.batch_size:
-            experiences = self.memory.sample()
-            self.learn(experiences)
+        #if len(self.memory) > self.batch_size:
+        experiences = self.memory.sample_batch()
+        self.learn(experiences)
+        # Roll over last state and action
+        state = next_state
+        return state, episodeReward
 
     def act(self, states):
         state = np.reshape(states, [-1, self.state_size])
@@ -250,57 +261,49 @@ class DDPG():
         new_weights = self.tau*local_weights+ (1-self.tau)*target_weights
         target_model.set_weights(new_weights)
 
-    def initialize_memory(self):
-        memory = ReplayBuffer()
-        state = self.gymEnv.reset() # question: should I reshape it before storing?
-        for i in range(memory.burn_in):
+
+    def burn_in_memory(self):
+        self.memory = ReplayBuffer()
+        state = self.env.reset() # question: should I reshape it before storing?
+        for i in range(self.memory.burn_in):
             # make a random action
-            action = np.random.randint(0,4)
+            action = self.env.action_space.sample()
 
-            next_state, reward, done = self.gymEnv.step(action)
+            next_state, reward, done, info = self.env.step(action)
 
-            memory.append((state, action, reward, next_state, done))
+            self.memory.append(state, action, reward, next_state, done)
 
             if done:
-                state = self.gymEnv.reset()
-        return memory
+                state = self.env.reset()
 
 
     def train(self):
-        state = self.gymEnv.reset()
+        # reset self.noise and self.last_state
+        state = self.reset_episode();
         total_steps = 0
 
         print("training with replay")
-        rewards_list = []
-        memory = self.burn_in_memory()
+        rList = []
+        self.burn_in_memory()
         # train and keep adding new experiences to memory
         for e in range(self.numEpisodes):
             done = False
-            episode_reward = 0
-            ep_length = 0
-
+            episodeReward = 0
+            state = self.reset_episode();
             while not done:
-                ep_length += 1
-                total_steps += 1
+                # choose action selected by local actor netowrk
+                action = self.act(state)
+                # take a step, add to memory and train using one sample from memory
+                state, episodeReward = self.step(state, action, episodeReward);
+                total_steps+=1
 
-                # A_t
-                action, q_values = self.epsilon_greedy_policy(state)
-                # R_t+1, S_t+1
-                next_state, reward, done = self.gymEnv.step(action)
+            rList.append(episodeReward)
+            if len(rList) % 20 == 0 and len(rList) > 0:
+                print("total_steps", total_steps, "mean reward", np.mean(rList[-10:]))
 
-                episode_reward += reward
-                #  save S_t, A_t, R_t+1, S_t+1 to memory
-                memory.append((state, action, reward, next_state, done))
+        print("finished training")
 
-                if done:
-                    rewards_list.append(episode_reward)
-                    # start new episode
-                    state = self.gymEnv.reset()
-                    episode_reward = 0
 
-                else:
-                    memory.append((state, action, reward, next_state, done))
-                    state = next_state
 
 class OUNoise:
     def __init__(self, size, mu, theta, sigma):
@@ -340,19 +343,20 @@ class OUNoise:
 
 def main(args):
     # prepare variables related to the environment
-    gymEnv = gym.make('Pendulum - v0')
+    gymEnv = gym.make('Pendulum-v0')
 
     env = gym.make('Pendulum-v0')
 
     state_size = env.observation_space.shape[0]
     action_size = env.action_space.shape[0]
-    action_bound = env.action_space.high
+    action_bound_high = env.action_space.high[0]
+    action_bound_low = env.action_space.low[0]
 
     task = namedtuple("myTask", field_names=["state_size", "action_size", "action_low", "action_high"])
-    ddpgTask = task(state_size,action_size, -action_bound, action_bound)
+    ddpgTask = task(state_size,action_size, action_bound_low, action_bound_high)
 
-    ddpgAgent = DDPG(task, env)
-
+    ddpgAgent = DDPG(ddpgTask, env)
+    print("start ddpg train")
     ddpgAgent.train()
 
 
