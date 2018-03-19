@@ -9,6 +9,10 @@ import gym
 # reference: Udacity deep learning tutorial
 # https://classroom.udacity.com/nanodegrees/nd101/parts/7d0218b1-1a81-4d49-95f7-14b015020851/modules/691b7845-f7d8-413d-90c7-971cd5016b5c/lessons/fef7e79a-0941-460b-936c-d24c759ff700/concepts/d254347a-68f4-47d0-912a-33fd79719cf8
 
+# hyper parameters:
+# https://github.com/pemami4911/deep-rl/blob/master/ddpg/ddpg.py
+# https://github.com/nrod80/ddpg-for-openai/blob/master/pendulum/pendulum_nn.py
+
 class ReplayBuffer:
     def __init__(self, memory_size=2000, burn_in=1000):
         # The memory essentially stores transitions recorder from the agent
@@ -39,7 +43,7 @@ class ReplayBuffer:
 
 
 class Actor:
-    def __init__(self, state_size, action_size, action_low, action_high):
+    def __init__(self, state_size, action_size, action_low, action_high, learningRate):
         """Initialize parameters and build model.
 
         Params
@@ -54,6 +58,7 @@ class Actor:
         self.action_low = action_low
         self.action_high = action_high
         self.action_range = self.action_high-self.action_low
+        self.learningRate = learningRate
         # build actor model
         self.build_model()
 
@@ -65,9 +70,9 @@ class Actor:
         '''
         states = layers.Input(shape=(self.state_size,), name = 'states')
         # add hidden layers
-        net = layers.Dense(units=32, activation='relu')(states)
-        net = layers.Dense(units=64, activation='relu')(net)
-        net = layers.Dense(units=32, activation='relu')(net)
+        net = layers.Dense(units=400, activation='relu')(states)
+        net = layers.Dense(units=300, activation='relu')(net)
+        # net = layers.Dense(units=32, activation='relu')(net)
         # Add final output layer with sigmoid activation
         # especially used for models where we have to predict the probability as an output.
         # Since probability of anything exists only between the range of 0 and 1
@@ -83,7 +88,7 @@ class Actor:
         loss = K.mean(-action_gradients * actions)
 
         # Define optimizer and training function
-        optimizer = optimizers.Adam()
+        optimizer = optimizers.Adam(lr=self.learningRate)
         # inside get_updates:
         # 1. get_gradients(loss, params)     dL/dW
         # 2. question : what does get_updates do?
@@ -105,9 +110,10 @@ class Actor:
         )
 
 class Critic:
-    def __init__(self, state_size, action_size):
+    def __init__(self, state_size, action_size, learningRate):
         self.state_size = state_size
         self.action_size = action_size
+        self.learningRate = learningRate
 
         self.build_model()
 
@@ -120,11 +126,11 @@ class Critic:
         states = layers.Input(shape=(self.state_size,), name = 'states')
         actions = layers.Input(shape=(self.action_size,), name ='actinos')
         # hidden layer for state pathway
-        net_states = layers.Dense(units=32, activation='relu')(states)
-        net_states = layers.Dense(units=64, activation='relu')(net_states)
+        net_states = layers.Dense(units=400, activation='relu')(states)
+        net_states = layers.Dense(units=300, activation='relu')(net_states)
         # hidden layer for action pathway
-        net_actions = layers.Dense(units=32, activation='relu')(actions)
-        net_actions = layers.Dense(units=64, activation='relu')(net_actions)
+        net_actions = layers.Dense(units=400, activation='relu')(actions)
+        net_actions = layers.Dense(units=300, activation='relu')(net_actions)
         # Hyper parameters: layer size, activations, batch normalization, regularization
 
         # combine state and action pathways
@@ -138,7 +144,7 @@ class Critic:
         self.model = models.Model(inputs=[states, actions], outputs=Q_values)
 
         # Define optimizer and compile model for training with builtin loss function
-        optimizer = optimizers.Adam()
+        optimizer = optimizers.Adam(lr=self.learningRate)
         self.model.compile(optimizer=optimizer, loss='mse')
 
         # compute action gradients (derivative of Q values w.r.t actions)
@@ -159,18 +165,20 @@ class DDPG():
         self.action_low = task.action_low
         self.action_high = task.action_high
         self.env = env
-        self.numEpisodes = 10000
+        self.numEpisodes = 1000
+        self.actorLR = 0.001
+        self.criticLR = 0.0001
         # two copies of each model - one local and one target
         # This is an extension of the "Fixed Q Targets" technique from Deep Q-Learning,
         # and is used to decouple the parameters being updated from the ones that are producing target values.
 
         # Actor (Policy) Model:
-        self.actor_local = Actor(self.state_size, self.action_size, self.action_low, self.action_high)
-        self.actor_target = Actor(self.state_size, self.action_size, self.action_low, self.action_high)
+        self.actor_local = Actor(self.state_size, self.action_size, self.action_low, self.action_high,self.actorLR )
+        self.actor_target = Actor(self.state_size, self.action_size, self.action_low, self.action_high, self.actorLR)
 
         # Critic (Value) Model:
-        self.critic_local = Critic(self.state_size, self.action_size)
-        self.critic_target = Critic(self.state_size, self.action_size)
+        self.critic_local = Critic(self.state_size, self.action_size, self.criticLR)
+        self.critic_target = Critic(self.state_size, self.action_size, self.criticLR)
 
         # Initialize target model parameters with local model parameters
         self.critic_target.model.set_weights(self.critic_local.model.get_weights())
@@ -211,6 +219,7 @@ class DDPG():
         self.learn(experiences)
         # Roll over last state and action
         state = next_state
+        episodeReward+= reward
         return state, episodeReward
 
     def act(self, states):
@@ -278,6 +287,7 @@ class DDPG():
 
 
     def train(self):
+        max_steps = 250
         # reset self.noise and self.last_state
         state = self.reset_episode();
         total_steps = 0
@@ -287,17 +297,17 @@ class DDPG():
         self.burn_in_memory()
         # train and keep adding new experiences to memory
         for e in range(self.numEpisodes):
-            print("episode", e)
-            done = False
             episodeReward = 0
             state = self.reset_episode();
-            while not done:
+            steps = 0
+            while steps < max_steps:
+                steps+=1
                 # choose action selected by local actor netowrk
                 action = self.act(state)
                 # take a step, add to memory and train using one sample from memory
                 state, episodeReward = self.step(state, action, episodeReward);
                 total_steps+=1
-            print("episode reward = ", episodeReward)
+            print("episode", e, "episode reward = ", episodeReward)
             rList.append(episodeReward)
             if len(rList) % 20 == 0 and len(rList) > 0:
                 print("total_steps", total_steps, "mean reward", np.mean(rList[-10:]))
