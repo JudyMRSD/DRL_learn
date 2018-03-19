@@ -287,6 +287,7 @@ class DDPG():
         self.burn_in_memory()
         # train and keep adding new experiences to memory
         for e in range(self.numEpisodes):
+            print("episode", e)
             done = False
             episodeReward = 0
             state = self.reset_episode();
@@ -296,7 +297,7 @@ class DDPG():
                 # take a step, add to memory and train using one sample from memory
                 state, episodeReward = self.step(state, action, episodeReward);
                 total_steps+=1
-
+            print("episode reward = ", episodeReward)
             rList.append(episodeReward)
             if len(rList) % 20 == 0 and len(rList) > 0:
                 print("total_steps", total_steps, "mean reward", np.mean(rList[-10:]))
