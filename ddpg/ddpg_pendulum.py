@@ -6,6 +6,8 @@ from keras import backend as K
 import sys
 import gym
 
+from keras.initializers import RandomUniform
+
 # reference: Udacity deep learning tutorial
 # https://classroom.udacity.com/nanodegrees/nd101/parts/7d0218b1-1a81-4d49-95f7-14b015020851/modules/691b7845-f7d8-413d-90c7-971cd5016b5c/lessons/fef7e79a-0941-460b-936c-d24c759ff700/concepts/d254347a-68f4-47d0-912a-33fd79719cf8
 
@@ -76,7 +78,7 @@ class Actor:
         # Add final output layer with sigmoid activation
         # especially used for models where we have to predict the probability as an output.
         # Since probability of anything exists only between the range of 0 and 1
-        raw_actions = layers.Dense(units=self.action_size, activation='sigmoid', name='raw_actions')(net)
+        raw_actions = layers.Dense(units=self.action_size, activation='tanh', kernel_initializer=RandomUniform(minval=-0.003, maxval=0.003), name='raw_actions')(net)
         # scale [0,1] output for each action dimension to proper range [action_low, action_high]
         actions = layers.Lambda(lambda x: (x*self.action_range) + self.action_low, name='actions')(raw_actions)
         # create model
@@ -138,7 +140,7 @@ class Critic:
         net = layers.Activation('relu')(net)
 
         # Final output layer to produce action values(Q values)
-        Q_values = layers.Dense(units=1, name='q_values')(net)
+        Q_values = layers.Dense(units=1, name='q_values', kernel_initializer=RandomUniform(minval=-0.003, maxval=0.003),)(net)
 
         # create Keras model
         self.model = models.Model(inputs=[states, actions], outputs=Q_values)
