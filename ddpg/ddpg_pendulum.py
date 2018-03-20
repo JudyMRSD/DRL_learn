@@ -15,8 +15,19 @@ from keras.initializers import RandomUniform
 # https://github.com/pemami4911/deep-rl/blob/master/ddpg/ddpg.py
 # https://github.com/nrod80/ddpg-for-openai/blob/master/pendulum/pendulum_nn.py
 
+# Hyperparameters
+# actor-lr: 0.0001
+# critic-lr: 0.001
+# gamma: 0.99
+# tau: 0.001
+# buffer-size: 1000000
+# minibatch-size: 64
+# buffer burn in : minibatch size
+# episodes: 50000
+# episode-len: 1000
+# randomseed = 1234
 class ReplayBuffer:
-    def __init__(self, memory_size=2000, burn_in=1000):
+    def __init__(self, memory_size, burn_in, random_seed=1234):
         # The memory essentially stores transitions recorder from the agent
         # taking actions in the environment.
 
@@ -27,6 +38,7 @@ class ReplayBuffer:
         self.memory = deque(maxlen=memory_size)
         self.burn_in = burn_in
         self.experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
+        random.seed(random_seed)
 
     def sample_batch(self, batch_size=32):
         # This function returns a batch of randomly sampled transitions - i.e. state, action, reward, next state, terminal flag tuples.
@@ -129,10 +141,9 @@ class Critic:
         actions = layers.Input(shape=(self.action_size,), name ='actinos')
         # hidden layer for state pathway
         net_states = layers.Dense(units=400, activation='relu')(states)
-        net_states = layers.Dense(units=300, activation='relu')(net_states)
+        net_states = layers.Dense(units=300)(net_states)
         # hidden layer for action pathway
-        net_actions = layers.Dense(units=400, activation='relu')(actions)
-        net_actions = layers.Dense(units=300, activation='relu')(net_actions)
+        net_actions = layers.Dense(units=300)(actions)
         # Hyper parameters: layer size, activations, batch normalization, regularization
 
         # combine state and action pathways
@@ -167,9 +178,9 @@ class DDPG():
         self.action_low = task.action_low
         self.action_high = task.action_high
         self.env = env
-        self.numEpisodes = 1000
-        self.actorLR = 0.001
-        self.criticLR = 0.0001
+        self.numEpisodes = 50000
+        self.actorLR = 0.0001
+        self.criticLR = 0.001
         # two copies of each model - one local and one target
         # This is an extension of the "Fixed Q Targets" technique from Deep Q-Learning,
         # and is used to decouple the parameters being updated from the ones that are producing target values.
@@ -194,14 +205,14 @@ class DDPG():
         self.noise = OUNoise(self.action_size, self.exploration_mu, self.exploration_theta, self.exploration_sigma)
 
         # Replay Memory
-        self.buffer_size = 100000
+        self.buffer_size = 1000000
         self.batch_size = 64
-        self.burn_in = 1000
+        self.burn_in = self.batch_size
         self.memory = ReplayBuffer(self.buffer_size, self.burn_in)
 
         # Hyper parameters
         self.gamma = 0.99 # discount factor
-        self.tau = 0.01 # soft update of target parameters
+        self.tau = 0.001 # soft update of target parameters
 
     def reset_episode(self):
         self.noise.reset()
@@ -222,7 +233,7 @@ class DDPG():
         # Roll over last state and action
         state = next_state
         episodeReward+= reward
-        return state, episodeReward
+        return state, episodeReward, done
 
     def act(self, states):
         state = np.reshape(states, [-1, self.state_size])
@@ -274,7 +285,6 @@ class DDPG():
 
 
     def burn_in_memory(self):
-        self.memory = ReplayBuffer()
         state = self.env.reset() # question: should I reshape it before storing?
         for i in range(self.memory.burn_in):
             # make a random action
@@ -289,7 +299,7 @@ class DDPG():
 
 
     def train(self):
-        max_steps = 250
+        # max_steps = 1000
         # reset self.noise and self.last_state
         state = self.reset_episode();
         total_steps = 0
@@ -297,17 +307,20 @@ class DDPG():
         print("training with replay")
         rList = []
         self.burn_in_memory()
+
         # train and keep adding new experiences to memory
         for e in range(self.numEpisodes):
             episodeReward = 0
             state = self.reset_episode();
             steps = 0
-            while steps < max_steps:
+            done = False
+            # openai set done = true when reach 200 steps or reach goal
+            while (not done):
                 steps+=1
                 # choose action selected by local actor netowrk
                 action = self.act(state)
                 # take a step, add to memory and train using one sample from memory
-                state, episodeReward = self.step(state, action, episodeReward);
+                state, episodeReward, done = self.step(state, action, episodeReward);
                 total_steps+=1
             print("episode", e, "episode reward = ", episodeReward)
             rList.append(episodeReward)
