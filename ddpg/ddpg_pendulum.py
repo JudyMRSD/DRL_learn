@@ -151,7 +151,7 @@ class Critic:
         net = layers.Activation('relu')(net)
 
         # Final output layer to produce action values(Q values)
-        Q_values = layers.Dense(units=1, name='q_values', kernel_initializer=RandomUniform(minval=-0.003, maxval=0.003),)(net)
+        Q_values = layers.Dense(units=1, name='q_values', kernel_initializer=RandomUniform(minval=-0.003, maxval=0.003))(net)
 
         # create Keras model
         self.model = models.Model(inputs=[states, actions], outputs=Q_values)
@@ -200,12 +200,12 @@ class DDPG():
         # Noise process
         self.exploration_mu = 0
         self.exploration_theta = 0.15
-        self.exploration_sigma = 0.2
+        self.exploration_sigma = 0.3
         # size, mu, theta, sigma
         self.noise = OUNoise(self.action_size, self.exploration_mu, self.exploration_theta, self.exploration_sigma)
 
         # Replay Memory
-        self.buffer_size = 1000000
+        self.buffer_size = 1000#1000000
         self.batch_size = 64
         self.burn_in = self.batch_size
         self.memory = ReplayBuffer(self.buffer_size, self.burn_in)
@@ -332,10 +332,11 @@ class DDPG():
 
 
 class OUNoise:
-    def __init__(self, size, mu, theta, sigma):
+    def __init__(self, size, mu, theta, sigma, dt=1e-2):
         self.mu = mu * np.ones(size)
         self.theta = theta
         self.sigma = sigma
+        self.dt = dt
         self.reset()
 
     def reset(self):
@@ -362,7 +363,7 @@ class OUNoise:
         # dx is a factor of theta times the difference between x and mean (self.mu)
         # x + dx brings x closer to mu by a factor of theta and random perterbation self.sigma*np.random.randn(len(x))
         # state x will be close to self.state eventually
-        dx = self.theta * (self.mu - x) + self.sigma*np.random.randn(len(x))
+        dx = self.theta * (self.mu - x)*self.dt + self.sigma*np.random.randn(len(x))*np.sqrt(self.dt)
         self.state = x + dx
         return self.state
 
